@@ -1,0 +1,290 @@
+openapi: 3.0.3
+info:
+  title: Log Ingestion API
+  version: 1.0.0
+  description: 'A high-throughput structured log ingestion and query service. Server
+    URL is set to http://localhost:8080 based on local deployment and documentation
+    evidence.
+
+    '
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+- url: http://localhost:8080
+  description: Local development server
+paths:
+  /health:
+    get:
+      summary: Service health check
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+  /logs:
+    get:
+      summary: Query and filter stored logs
+      operationId: getLogs
+      security: []
+      parameters:
+      - name: service
+        in: query
+        required: false
+        description: Exact service-name match
+        schema:
+          type: string
+      - name: level
+        in: query
+        required: false
+        description: Log level filter
+        schema:
+          type: string
+          enum:
+          - debug
+          - info
+          - warn
+          - error
+      - name: since
+        in: query
+        required: false
+        description: Start timestamp (ISO 8601)
+        schema:
+          type: string
+          format: date-time
+      - name: until
+        in: query
+        required: false
+        description: End timestamp (ISO 8601)
+        schema:
+          type: string
+          format: date-time
+      - name: q
+        in: query
+        required: false
+        description: Substring search on message
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        description: Maximum number of logs to return
+        schema:
+          type: integer
+      - name: cursor
+        in: query
+        required: false
+        description: Pagination cursor
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Logs successfully retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryLogsResponse'
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Ingest log records
+      operationId: createLogs
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLogsRequest'
+      responses:
+        '200':
+          description: Logs successfully processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateLogsResponse'
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /logs/aggregate:
+    get:
+      summary: Aggregate logs over configurable time intervals
+      operationId: aggregateLogs
+      security: []
+      parameters:
+      - name: since
+        in: query
+        required: true
+        description: Start timestamp (ISO 8601)
+        schema:
+          type: string
+          format: date-time
+      - name: until
+        in: query
+        required: true
+        description: End timestamp (ISO 8601)
+        schema:
+          type: string
+          format: date-time
+      - name: bucket
+        in: query
+        required: true
+        description: Time bucket interval
+        schema:
+          type: string
+          enum:
+          - 1m
+          - 5m
+          - 1h
+          - 1d
+      - name: group_by
+        in: query
+        required: false
+        description: Grouping dimension
+        schema:
+          type: string
+      - name: service
+        in: query
+        required: false
+        description: Service filter
+        schema:
+          type: string
+      - name: level
+        in: query
+        required: false
+        description: Log level filter
+        schema:
+          type: string
+          enum:
+          - debug
+          - info
+          - warn
+          - error
+      - name: q
+        in: query
+        required: false
+        description: Substring search on message
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Logs successfully aggregated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregateLogsResponse'
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    CreateLogsRequest:
+      type: object
+      required:
+      - logs
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Log'
+    Log:
+      type: object
+      required:
+      - timestamp
+      - level
+      - service
+      - message
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum:
+          - debug
+          - info
+          - warn
+          - error
+        service:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+        attributes:
+          type: object
+    CreateLogsResponse:
+      type: object
+      required:
+      - accepted
+      - rejected
+      properties:
+        accepted:
+          type: integer
+          minimum: 0
+        rejected:
+          type: array
+          items:
+            type: object
+            required:
+            - index
+            - reason
+            properties:
+              index:
+                type: integer
+              reason:
+                type: string
+    QueryLogsResponse:
+      type: object
+      required:
+      - logs
+      - next_cursor
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Log'
+        next_cursor:
+          type: string
+          nullable: true
+    AggregateLogsResponse:
+      type: object
+      required:
+      - buckets
+      properties:
+        buckets:
+          type: array
+          items:
+            type: object
+            required:
+            - start
+            - count
+            properties:
+              start:
+                type: string
+                format: date-time
+              group:
+                type: string
+              count:
+                type: integer
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string

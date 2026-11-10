@@ -3,9 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-
-from scripts.openapi_to_bruno import convert, extract_constraints, generate_payload_scenarios
-
+from api_generator.openapi_to_bruno import convert, extract_constraints, generate_payload_scenarios
 
 class ConvertTests(unittest.TestCase):
     def setUp(self):
